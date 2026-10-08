@@ -11,6 +11,7 @@
 .macro WHAT
     movq %rax, %rdi
     movq (%rax), %r11
+    xorl %ecx, %ecx
     call *16(%r11)
     movq %rax, %rdi
     call FixtureCheckWhat
@@ -125,6 +126,8 @@ GuestStdCapture:
     ud2
     .cfi_endproc
 
+.globl ProbeWhat
+ProbeWhat:
 .globl ProbeDestroy
 ProbeDestroy:
     .cfi_startproc

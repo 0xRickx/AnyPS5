@@ -1,6 +1,7 @@
 #include "prx/libc/include/exceptions/Runtime.hpp"
 #include <cstdio>
 #include <cstring>
+#include <cstdlib>
 #include <regex>
 #include <windows.h>
 
@@ -27,6 +28,9 @@ void APS5_VABI _ZNSt12out_of_rangeD1Ev_nid_postfix(Object*);
 int APS5_VABI GuestOuter();
 void APS5_VABI GuestStdCapture();
 void APS5_VABI ProbeDestroy(GuestDestroy, void*, void*);
+const char* APS5_VABI ProbeWhat(GuestWhat, const void*, const void*);
+void APS5_VABI _ZNSt8bad_castC1Ev_nid_postfix(Object*);
+void APS5_VABI _ZNSt9bad_allocC1Ev_nid_postfix(Object*);
 
 TypeRecord FixtureBaseType{_ZTVN10__cxxabiv117__class_type_infoE_nid_postfix + 16, "11FixtureBase", nullptr};
 TypeRecord FixtureErrorType{_ZTVN10__cxxabiv120__si_class_type_infoE_nid_postfix + 16, "12FixtureError", &FixtureBaseType};
@@ -64,6 +68,104 @@ static void* poison;
 static unsigned callbacks;
 static bool regularRelease;
 static bool keepMessage;
+static const char* expectedMessage = FixtureMessage;
+
+using NativeFree = void (*)(void*);
+static NativeFree originalFree;
+static std::uintptr_t* freeSlot;
+static void* watchedObject;
+static void* watchedMessage;
+static void* foreignObject;
+static void* foreignMessage;
+static unsigned objectFrees, messageFrees;
+
+static void TrackedFree(void* pointer) {
+    if (pointer && (pointer == foreignObject || pointer == foreignMessage)) FixtureFail(50);
+    if (pointer && pointer == watchedObject && ++objectFrees != 1) FixtureFail(51);
+    if (pointer && pointer == watchedMessage && ++messageFrees != 1) FixtureFail(52);
+    originalFree(pointer);
+}
+
+static void ReplaceFree(std::uintptr_t address) {
+    DWORD protection;
+    if (!VirtualProtect(freeSlot, sizeof(*freeSlot), PAGE_READWRITE, &protection)) FixtureFail(53);
+    *freeSlot = address;
+    DWORD ignored;
+    if (!VirtualProtect(freeSlot, sizeof(*freeSlot), protection, &ignored)) FixtureFail(54);
+}
+
+static void TrackFree() {
+    auto* image = reinterpret_cast<unsigned char*>(GetModuleHandleW(L"libc.prx"));
+    if (!image) FixtureFail(55);
+    auto* dos = reinterpret_cast<IMAGE_DOS_HEADER*>(image);
+    auto* nt = reinterpret_cast<IMAGE_NT_HEADERS64*>(image + dos->e_lfanew);
+    auto* imports = reinterpret_cast<IMAGE_IMPORT_DESCRIPTOR*>(image +
+        nt->OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_IMPORT].VirtualAddress);
+    for (; imports->Name; ++imports) {
+        if (!imports->OriginalFirstThunk) continue;
+        auto* names = reinterpret_cast<IMAGE_THUNK_DATA64*>(image + imports->OriginalFirstThunk);
+        auto* slots = reinterpret_cast<IMAGE_THUNK_DATA64*>(image + imports->FirstThunk);
+        for (; names->u1.AddressOfData; ++names, ++slots) {
+            if (IMAGE_SNAP_BY_ORDINAL64(names->u1.Ordinal)) continue;
+            auto* name = reinterpret_cast<IMAGE_IMPORT_BY_NAME*>(image + names->u1.AddressOfData);
+            if (std::strcmp(name->Name, "free")) continue;
+            freeSlot = reinterpret_cast<std::uintptr_t*>(&slots->u1.Function);
+            originalFree = reinterpret_cast<NativeFree>(*freeSlot);
+            ReplaceFree(reinterpret_cast<std::uintptr_t>(TrackedFree));
+            return;
+        }
+    }
+    FixtureFail(56);
+}
+
+static int TestVtable(const char* mode) {
+    const bool plain = std::strstr(mode, "plain") != nullptr;
+    const bool deleting = std::strstr(mode, "delete") != nullptr;
+    const bool destroying = deleting || std::strstr(mode, "destroy") != nullptr;
+    auto* actual = static_cast<Object*>(std::malloc(sizeof(Object)));
+    auto* other = static_cast<Object*>(std::malloc(sizeof(Object)));
+    if (!actual || !other) FixtureFail(57);
+    actual->message = other->message = nullptr;
+    if (plain) {
+        _ZNSt9bad_allocC1Ev_nid_postfix(actual);
+        _ZNSt8bad_castC1Ev_nid_postfix(other);
+    } else {
+        _ZNSt12out_of_rangeC1EPKc_nid_postfix(actual, "actual virtual message");
+        _ZNSt12out_of_rangeC1EPKc_nid_postfix(other, "unrelated virtual message");
+    }
+    const Object originalOther = *other;
+    watchedObject = actual;
+    watchedMessage = plain ? nullptr : reinterpret_cast<Message*>(const_cast<char*>(actual->message)) - 1;
+    foreignObject = other;
+    foreignMessage = plain ? nullptr : reinterpret_cast<Message*>(const_cast<char*>(other->message)) - 1;
+    TrackFree();
+    auto* unused = std::strstr(mode, "zero") ? nullptr : other;
+    GuestDestroy destroy, deleteObject;
+    GuestWhat what;
+    auto* slots = static_cast<const unsigned char*>(actual->vtable);
+    std::memcpy(&destroy, slots, sizeof(destroy));
+    std::memcpy(&deleteObject, slots + sizeof(void*), sizeof(deleteObject));
+    std::memcpy(&what, slots + 2 * sizeof(void*), sizeof(what));
+    if (destroying) {
+        ProbeDestroy(deleting ? deleteObject : destroy, actual, unused);
+        if (objectFrees != (deleting ? 1u : 0u) || messageFrees != (plain ? 0u : 1u)) FixtureFail(58);
+        if (!deleting && actual->message) FixtureFail(59);
+    } else {
+        const char* result = ProbeWhat(what, actual, unused);
+        if (!result || std::strcmp(result, plain ? "std::bad_alloc" : "actual virtual message") ||
+            objectFrees || messageFrees) FixtureFail(60);
+    }
+    if (other->vtable != originalOther.vtable || other->message != originalOther.message ||
+        (!plain && std::strcmp(other->message, "unrelated virtual message"))) FixtureFail(61);
+    ReplaceFree(reinterpret_cast<std::uintptr_t>(originalFree));
+    if (!plain) {
+        if (!deleting) _ZNSt12out_of_rangeD1Ev_nid_postfix(actual);
+        _ZNSt12out_of_rangeD1Ev_nid_postfix(other);
+    }
+    if (!deleting) std::free(actual);
+    std::free(other);
+    return 0;
+}
 
 static Message* MessageHeader(const Object& object) {
     return reinterpret_cast<Message*>(const_cast<char*>(object.message)) - 1;
@@ -81,6 +183,11 @@ extern "C" void APS5_VABI FixtureInspect(void* pointer) {
     auto* header = LibcException::FromObject(pointer);
     if (header->_pad != 0 || !header->destructor) FixtureFail(42);
     expectedObject = pointer;
+    GuestWhat what;
+    std::memcpy(&what, static_cast<const unsigned char*>(static_cast<Object*>(pointer)->vtable) +
+        2 * sizeof(void*), sizeof(what));
+    const char* message = ProbeWhat(what, pointer, poison);
+    if (!message || std::strcmp(message, expectedMessage)) FixtureFail(62);
     if (keepMessage) {
         _ZNSt12out_of_rangeC1ERKS__nid_postfix(&retained, static_cast<Object*>(pointer));
         if (MessageHeader(retained)->references.load() != 1) FixtureFail(43);
@@ -92,6 +199,7 @@ extern "C" void APS5_VABI FixtureInspect(void* pointer) {
 int main(int argc, char** argv) {
     SetErrorMode(SEM_FAILCRITICALERRORS | SEM_NOGPFAULTERRORBOX);
     if (argc != 2) return 2;
+    if (std::strncmp(argv[1], "vtable-", 7) == 0) return TestVtable(argv[1]);
     if (std::strcmp(argv[1], "control") == 0) {
         if (GuestOuter() != 0 || FixtureDestroyed != 1 || FixtureGuardDestroyed != 1 ||
             FixtureCaught != 2 || FixtureWhatChecked != 2) return 10;
@@ -102,6 +210,7 @@ int main(int argc, char** argv) {
     keepMessage = std::strstr(argv[1], "unshared") == nullptr;
     FixtureArgument = reinterpret_cast<std::uintptr_t>(FixtureMessage);
     if (regex) {
+        expectedMessage = "regular expression error";
         FixtureStdOutType = _ZTISt11regex_error_nid_postfix;
         FixtureThrow = reinterpret_cast<GuestThrowFunction>(_ZSt13_Xregex_errorNSt15regex_constants10error_typeE_nid_postfix);
         FixtureArgument = static_cast<std::uintptr_t>(std::regex_constants::error_collate);
