@@ -780,6 +780,14 @@ std::shared_ptr<Texture> CachedSampledTexture(const Context& context, std::span<
     return cachedTexture(context, words, resource, ViewComponents(resource));
 }
 
+bool SampledTexturesShareEntry(std::span<const std::uint32_t> first, std::span<const std::uint32_t> second) {
+    Require(first.size() == 8 && second.size() == 8, "sampled texture keys take eight descriptor words");
+    const VkComponentMapping components{VK_COMPONENT_SWIZZLE_R, VK_COMPONENT_SWIZZLE_G, VK_COMPONENT_SWIZZLE_B, VK_COMPONENT_SWIZZLE_A};
+    const auto firstKey = MakeTextureKey(VK_NULL_HANDLE, first, components);
+    const auto secondKey = MakeTextureKey(VK_NULL_HANDLE, second, components);
+    return firstKey == secondKey && TextureKeyHash{}(firstKey) == TextureKeyHash{}(secondKey);
+}
+
 void FlushCachedTextures(VkDevice device) {
     Require(device != VK_NULL_HANDLE, "cannot flush textures without a Vulkan device");
     GuestMemory::AssertGpuLockHeld("FlushCachedTextures");
