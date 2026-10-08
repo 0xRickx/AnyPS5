@@ -131,6 +131,18 @@ void stateTests() {
     queue.context[0x293] = 0x06030000u;
     Require(AgcDriver::Graphics::DrawRejection(queue, false).find("sample iteration") != std::string::npos, "per-sample shading was accepted");
     expectFailure([&] { AgcDriver::Graphics::DecodeState(queue); }, "sample iteration");
+    queue.context[0x293] = 0;
+    for (const auto disabled : {0x6000u, 0x00100000u, 0u}) {
+        queue.context[0x313] = disabled;
+        Require(AgcDriver::Graphics::DecodeState(queue).conservativeRasterization == VK_CONSERVATIVE_RASTERIZATION_MODE_DISABLED_EXT, "disabled conservative rasterization decoded as enabled");
+        Require(AgcDriver::Graphics::DrawRejection(queue, false).find("PA_SC_CONSERVATIVE") == std::string::npos, "disabled conservative rasterization was rejected");
+    }
+    for (const auto enabled : {0x00e00001u, 0x01e00022u}) {
+        queue.context[0x313] = enabled;
+        Require(AgcDriver::Graphics::DrawRejection(queue, false).find("PA_SC_CONSERVATIVE") != std::string::npos, "conservative rasterization was accepted");
+        expectFailure([&] { AgcDriver::Graphics::DecodeState(queue); }, "PA_SC_CONSERVATIVE");
+    }
+    queue.context[0x313] = 0x6000u;
     queue = makeState();
     queue.userConfig.erase(0x24b);
     queue.context[0x2a5] = 0;
