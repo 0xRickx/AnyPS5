@@ -71,6 +71,9 @@ void ReleaseMessage(const char* message) {
 void DestroyPlain(ExceptionObject*) {}
 void DeletePlain(ExceptionObject* object) { std::free(object); }
 void DestroyMessage(ExceptionObject* object) { ReleaseMessage(object->message); object->message = nullptr; }
+static void APS5_VABI DestroyGuestMessage_nid_no_patch(void* object) {
+    DestroyMessage(static_cast<ExceptionObject*>(object));
+}
 void DeleteMessage(ExceptionObject* object) { DestroyMessage(object); std::free(object); }
 const char* PlainWhat(const ExceptionObject* object) {
     auto* table = static_cast<const ExceptionVtable*>(object->vtable);
@@ -102,7 +105,8 @@ ExceptionObject* Assign(ExceptionObject* object, const ExceptionObject* source) 
 [[noreturn]] void ThrowMessage(const ExceptionVtable& table, const char* message) {
     auto* object = static_cast<ExceptionObject*>(__cxa_allocate_exception_nid_postfix(sizeof(ExceptionObject)));
     Construct(object, table, message);
-    __cxa_throw_nid_postfix(object, reinterpret_cast<std::type_info*>(const_cast<TypeRecord*>(table.type)), [](void* p) { DestroyMessage(static_cast<ExceptionObject*>(p)); });
+    __cxa_throw_nid_postfix(object, reinterpret_cast<std::type_info*>(const_cast<TypeRecord*>(table.type)),
+        reinterpret_cast<decltype(Header::destructor)>(DestroyGuestMessage_nid_no_patch));
 }
 [[noreturn]] void ThrowPlain(const ExceptionVtable& table) {
     auto* object = static_cast<ExceptionObject*>(__cxa_allocate_exception_nid_postfix(sizeof(void*)));
@@ -304,6 +308,7 @@ const char* APS5_VABI _ZNKSt8ios_base7failure4whatEv_nid_postfix(const LibcExcep
     auto* object = static_cast<RegexObject*>(__cxa_allocate_exception_nid_postfix(sizeof(RegexObject)));
     LibcException::Construct(&object->base, _ZTVSt11regex_error_nid_postfix, "regular expression error");
     object->code = code;
-    __cxa_throw_nid_postfix(object, reinterpret_cast<std::type_info*>(&_ZTISt11regex_error_nid_postfix), [](void* p) { LibcException::DestroyMessage(static_cast<LibcException::ExceptionObject*>(p)); });
+    __cxa_throw_nid_postfix(object, reinterpret_cast<std::type_info*>(&_ZTISt11regex_error_nid_postfix),
+        reinterpret_cast<decltype(LibcException::Header::destructor)>(LibcException::DestroyGuestMessage_nid_no_patch));
 }
 }
