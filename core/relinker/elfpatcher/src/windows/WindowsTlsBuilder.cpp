@@ -260,7 +260,7 @@ PeDirectory WindowsTlsBuilder::Build(const std::vector<std::uint8_t>& source, co
                 if (access.Wide)
                     code.Emit({0x48, 0x8b, 0x4c, 0x24, 0x08, 0x48, access.AluOpcode, 0xc8});
                 else
-                    code.Emit({0x8b, 0x4c, 0x24, 0x08, access.AluOpcode, 0xc8});
+                    code.Emit({0x48, 0x8b, 0x4c, 0x24, 0x08, access.AluOpcode, 0xc8});
                 code.Emit({0x58});
                 code.Emit({0x48, 0x8d, 0x64, 0x24, 0x08});
             } else if (access.AluOpcode != 0) {

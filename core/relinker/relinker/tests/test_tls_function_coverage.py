@@ -242,6 +242,9 @@ REGISTER_ALUS = (
     ("cmp-rax-rbx", bytes.fromhex("64 48 3b 03"), 0x3b, 0, True, {3: -8}, -8),
     ("xor-r13-rbx-rcx-disp8", bytes.fromhex("64 4c 33 6c 0b f0"), 0x33, 13, True, {3: 0x18, 1: -0x10}, -8),
     ("xor-edx-rbx", bytes.fromhex("64 33 13"), 0x33, 2, False, {3: 0x10}, 0x10),
+    ("cmp-ecx-rax", bytes.fromhex("64 3b 08"), 0x3b, 1, False, {0: 0x10}, 0x10),
+    ("adc-rax-rbx", bytes.fromhex("64 48 13 03"), 0x13, 0, True, {3: -8}, -8),
+    ("sbb-rcx-rax", bytes.fromhex("64 48 1b 08"), 0x1b, 1, True, {0: 0x10}, 0x10),
 )
 
 
@@ -378,9 +381,14 @@ def register_alu_body(instruction, opcode, register, wide, address, offset, flag
         res = (base_val - operand_val) & (mask if wide else 0xffffffff)
     elif opcode == 0x3b:
         res = base_val
+    elif opcode == 0x13:
+        res = (base_val + operand_val + (flags & 1)) & (mask if wide else 0xffffffff)
+    elif opcode == 0x1b:
+        res = (base_val - operand_val - (flags & 1)) & (mask if wide else 0xffffffff)
     else:
         raise ValueError(f"Unknown opcode: {opcode}")
-    expected[register] = res if wide else res & 0xffffffff
+    if opcode != 0x3b:
+        expected[register] = res if wide else res & 0xffffffff
     emit(b"\x68" + struct.pack("<I", flags) + b"\x9d")
     load_offset = len(code)
     emit(instruction)
@@ -425,7 +433,7 @@ def register_alu_stub(instruction, opcode, register, wide):
         return bytes.fromhex("48 8d 64 24 80 51 52 50") + address + b"\x50", b"\x59" + load + b"\x58" + alu + bytes.fromhex("5a 59 48 8d a4 24 80 00 00 00")
     elif register == 1:
         load = (b"\x48" if wide else b"") + bytes.fromhex("8b 04 08")
-        restore_rcx = bytes.fromhex("48 8b 4c 24 08 48") + bytes([opcode, 0xc8]) if wide else bytes.fromhex("8b 4c 24 08") + bytes([opcode, 0xc8])
+        restore_rcx = bytes.fromhex("48 8b 4c 24 08 48") + bytes([opcode, 0xc8]) if wide else bytes.fromhex("48 8b 4c 24 08") + bytes([opcode, 0xc8])
         return bytes.fromhex("48 8d 64 24 80 51 50") + address + b"\x50", b"\x59" + load + restore_rcx + bytes.fromhex("58 48 8d 64 24 08 48 8d a4 24 80 00 00 00")
     else:
         load = (b"\x48" if wide else b"") + bytes.fromhex("8b 04 08")
