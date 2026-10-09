@@ -338,6 +338,13 @@ void relativeRelocationTableBounds() {
     require(valid->TargetOfSlot(0x5000) == 0x6000, "Valid relative relocation was not indexed");
     require(!valid->TargetOfSlot(0x7000).has_value(), "Out of segment relocation was indexed in valid table");
 
+    auto emptyRelocationTable = bytes;
+    write<std::uint64_t>(emptyRelocationTable, 0x108, ~std::uint64_t{0});
+    write<std::uint64_t>(emptyRelocationTable, 0x118, 0);
+    auto emptyIndex = Relinker::UnusedNidFilter::BuildRelativeRelocationIndex(emptyRelocationTable);
+    require(!emptyIndex->TargetOfSlot(0x5000).has_value(),
+            "Empty relocation table was unexpectedly parsed");
+
     auto overextended = bytes;
     write<std::uint64_t>(overextended, 0x118, 48);
     requireFailure([&] { Relinker::UnusedNidFilter::BuildRelativeRelocationIndex(overextended); }, "Relocation table extending beyond PT_LOAD was accepted");

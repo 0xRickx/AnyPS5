@@ -63,7 +63,7 @@ void collectRelativeEntries(
     std::uint64_t tableSize,
     std::unordered_map<VirtualAddress, VirtualAddress>& out
 ) {
-    if (tableVaddr == 0 && tableSize == 0) return;
+    if (tableSize == 0) return;
     if (tableSize % RelaEntSize != 0)
         throw RelinkerException("Invalid relocation table size", tableSize);
 
@@ -72,7 +72,6 @@ void collectRelativeEntries(
         throw RelinkerException("Relocation table out of bounds", tableFileOff);
     if (tableSize > elfBytes.size() - tableFileOff)
         throw RelinkerException("Relocation table out of bounds", tableFileOff);
-    if (tableSize == 0) return;
 
     for (std::uint64_t off = 0; off < tableSize; off += RelaEntSize) {
         std::size_t pos = static_cast<std::size_t>(tableFileOff + off);
