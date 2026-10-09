@@ -12,6 +12,7 @@
 #include <set>
 #include <string>
 #include <string_view>
+#include <utility>
 #include <vector>
 
 namespace Relinker {
@@ -33,7 +34,13 @@ std::vector<std::string> ReadNeededNames(const Domain::SysVDynamicSection& dynam
     return names;
 }
 
-std::string ModuleStem(const std::string& name) {
+std::string FoldFilename(std::string name) {
+    for (auto& character : name) if (character >= 'A' && character <= 'Z') character = static_cast<char>(character + ('a' - 'A'));
+    return name;
+}
+
+std::string ModuleStem(std::string name, const bool windows) {
+    if (windows) name = FoldFilename(std::move(name));
     for (const std::string_view suffix : {".debug_prx", ".sprx", ".prx"}) {
         if (name.size() > suffix.size() && name.ends_with(suffix)) return name.substr(0, name.size() - suffix.size());
     }
@@ -82,9 +89,9 @@ std::vector<GuestArtifact> GuestModuleBuilder::Build(const std::filesystem::path
     std::map<std::string, std::filesystem::path> neededAliases;
     for (const auto& name : neededNames) {
         if (excludedModules.contains(name)) continue;
-        if (std::any_of(paths.begin(), paths.end(), [&](const auto& path) { return path.filename().string() == name; })) continue;
-        const auto stem = ModuleStem(name);
-        const auto alias = stem.empty() ? paths.end() : std::find_if(paths.begin(), paths.end(), [&](const auto& path) { return ModuleStem(path.filename().string()) == stem; });
+        if (std::any_of(paths.begin(), paths.end(), [&](const auto& path) { return path.filename().string() == name || (windows && FoldFilename(path.filename().string()) == FoldFilename(name)); })) continue;
+        const auto stem = ModuleStem(name, windows);
+        const auto alias = stem.empty() ? paths.end() : std::find_if(paths.begin(), paths.end(), [&](const auto& path) { return ModuleStem(path.filename().string(), windows) == stem; });
         if (alias != paths.end()) neededAliases.emplace(name, *alias);
         else missingNeeded.insert(name);
     }
@@ -101,10 +108,10 @@ std::vector<GuestArtifact> GuestModuleBuilder::Build(const std::filesystem::path
             }
             if (!it->is_regular_file()) continue;
             const auto name = it->path().filename().string();
-            const auto stem = ModuleStem(name);
+            const auto stem = ModuleStem(name, windows);
             std::vector<std::string> stemMatches;
             if (!stem.empty()) {
-                for (const auto& needed : missingNeeded) if (needed != name && ModuleStem(needed) == stem) stemMatches.push_back(needed);
+                for (const auto& needed : missingNeeded) if (needed != name && ModuleStem(needed, windows) == stem) stemMatches.push_back(needed);
             }
             if ((!missingNeeded.contains(name) && stemMatches.empty()) || !isElf(it->path())) continue;
             if (missingNeeded.contains(name)) record(found, name, it->path());
@@ -162,19 +169,16 @@ std::vector<GuestArtifact> GuestModuleBuilder::Build(const std::filesystem::path
     }
     std::map<std::string, std::size_t> guestNames;
     std::map<std::string, std::size_t> windowsGuestFiles;
-    const auto foldFilename = [](std::string name) {
-        for (auto& character : name) if (character >= 'A' && character <= 'Z') character = static_cast<char>(character + ('a' - 'A'));
-        return name;
-    };
     for (std::size_t index = 0; index < images.size(); ++index) {
         for (const auto& name : {images[index].SourcePath.filename().string(), images[index].Soname}) {
             if (name.empty()) continue;
             const auto [found, inserted] = guestNames.emplace(name, index);
             if (!inserted && found->second != index) throw Domain::RelinkerException("Ambiguous guest dependency name: " + name);
         }
-        if (windows) windowsGuestFiles.emplace(foldFilename(images[index].SourcePath.filename().string()), index);
+        if (windows) windowsGuestFiles.emplace(FoldFilename(images[index].SourcePath.filename().string()), index);
     }
     for (const auto& [name, path] : neededAliases) {
+        if (guestNames.contains(name)) continue;
         const auto image = std::find_if(images.begin(), images.end(), [&](const auto& candidate) { return candidate.SourcePath == path; });
         if (image == images.end()) throw Domain::RelinkerException("Needed module alias has no guest image: " + name);
         const auto index = static_cast<std::size_t>(image - images.begin());
@@ -184,7 +188,7 @@ std::vector<GuestArtifact> GuestModuleBuilder::Build(const std::filesystem::path
     const auto findGuest = [&](const std::string& name) {
         const auto exact = guestNames.find(name);
         if (exact != guestNames.end() || !windows) return exact;
-        const auto file = windowsGuestFiles.find(foldFilename(name));
+        const auto file = windowsGuestFiles.find(FoldFilename(name));
         return file == windowsGuestFiles.end() ? guestNames.end() : guestNames.emplace(name, file->second).first;
     };
     const auto rejectSharedImport = [&](const std::string& name, const std::string& importer) {
