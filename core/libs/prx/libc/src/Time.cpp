@@ -9,7 +9,7 @@
 
 #include "prx/libc/include/General.hpp"
 
-#ifndef _WIN32
+#ifdef __linux__
 #include <cstdlib>
 
 namespace {
