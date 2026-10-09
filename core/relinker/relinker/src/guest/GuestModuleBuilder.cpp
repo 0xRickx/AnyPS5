@@ -85,6 +85,11 @@ std::vector<GuestArtifact> GuestModuleBuilder::Build(const std::filesystem::path
         }
         for (const auto& [name, path] : found) paths.push_back(path);
     }
+    if (std::filesystem::exists(outputPath)) {
+        for (const auto& path : paths)
+            if (std::filesystem::equivalent(path, outputPath))
+                throw Domain::RelinkerException("Executable output would overwrite an input module: " + outputPath.string());
+    }
     if (!unmatchedExclusions.empty()) throw Domain::RelinkerException("Excluded guest module file not found: " + *unmatchedExclusions.begin());
     std::sort(paths.begin(), paths.end());
     if (paths.empty()) return {};
