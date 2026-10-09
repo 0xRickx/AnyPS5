@@ -203,8 +203,13 @@ ShaderRecompiler::RectListShaders PreparedRectangle(const ShaderSnapshot& snapsh
 }
 
 ShaderRecompiler::RectListShaders DrawRectangle(const ShaderSnapshot& front, const std::shared_ptr<const ShaderSnapshot>& fragment, std::uint64_t vertexId, std::uint64_t fragmentId, const ShaderRecompiler::SpirvTarget& target) {
-    static_cast<void>(fragment);
-    static_cast<void>(target);
+    const auto prepared = [&] {
+        std::lock_guard lock(front.prepared->mutex);
+        return std::ranges::any_of(front.prepared->rectangles, [&](const auto& entry) { return entry.vertexId == vertexId && entry.fragmentId == fragmentId; });
+    };
+    if (prepared()) return PreparedRectangle(front, vertexId, fragmentId);
+    APS5_LOG_ERR("Rect-list draw of shader 0x%llx has no rectangle for fragment shader 0x%llx; preparing it at draw", static_cast<unsigned long long>(front.codeAddress), static_cast<unsigned long long>(fragment->codeAddress));
+    ResolvePreparedGraphics(front, fragment, 17, target);
     return PreparedRectangle(front, vertexId, fragmentId);
 }
 
