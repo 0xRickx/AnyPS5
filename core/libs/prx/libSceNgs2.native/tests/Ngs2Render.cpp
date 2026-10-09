@@ -490,6 +490,7 @@ static void TestDefaultChannelMap() {
     bool unsupported = false;
     try { sceNgs2SystemRender(system, &info, 1); } catch (const std::runtime_error&) { unsupported = true; }
     Require(unsupported);
+    Require(sceNgs2SystemDestroy(system, nullptr) == SCE_NGS2_OK);
 }
 
 static void TestUnsetMatrix() {
