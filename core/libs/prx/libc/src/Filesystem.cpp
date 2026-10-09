@@ -118,9 +118,22 @@ extern "C" int APS5_VABI remove_nid_postfix(const char* path) {
 #ifdef _WIN32
         const DWORD attributes = GetFileAttributesW(resolved.c_str());
         bool removed = false;
-        if (attributes != INVALID_FILE_ATTRIBUTES) {
-            removed = (attributes & FILE_ATTRIBUTE_DIRECTORY) ?
+        const auto removeEntry = [&] {
+            return (attributes & FILE_ATTRIBUTE_DIRECTORY) ?
                 RemoveDirectoryW(resolved.c_str()) != 0 : DeleteFileW(resolved.c_str()) != 0;
+        };
+        if (attributes != INVALID_FILE_ATTRIBUTES) {
+            removed = removeEntry();
+            const DWORD writable = attributes & ~FILE_ATTRIBUTE_READONLY;
+            if (!removed && GetLastError() == ERROR_ACCESS_DENIED && writable != attributes &&
+                SetFileAttributesW(resolved.c_str(), writable ? writable : FILE_ATTRIBUTE_NORMAL)) {
+                removed = removeEntry();
+                if (!removed) {
+                    const DWORD nativeError = GetLastError();
+                    SetFileAttributesW(resolved.c_str(), attributes);
+                    SetLastError(nativeError);
+                }
+            }
         }
         if (!removed) {
             const DWORD nativeError = GetLastError();
