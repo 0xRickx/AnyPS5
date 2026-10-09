@@ -483,6 +483,7 @@ void encodeInfo(Writer& writer, const CompiledShaderInfo& compiled) {
         out.Value(image.constantSwizzle);
         out.Value(image.constantSwizzleCompatible);
         out.Value(image.flatVolumeCompatible);
+        out.Value(image.flatLineCompatible);
         out.Value(image.byElements);
         out.Value(image.byComponents);
         out.Value(image.packedFormat);
@@ -587,6 +588,7 @@ void decodeInfo(Reader& reader, CompiledShaderInfo& compiled) {
         in.Value(image.constantSwizzle);
         in.Value(image.constantSwizzleCompatible);
         in.Value(image.flatVolumeCompatible);
+        in.Value(image.flatLineCompatible);
         in.Value(image.byElements);
         in.Value(image.byComponents);
         in.Value(image.packedFormat);
