@@ -1094,8 +1094,22 @@ static void CheckVirtualQuerySplitFlexibleRanges() {
     Require(sceKernelMunmap(bytes + page * 2, page) == 0);
 }
 
+static void CheckVirtualQueryForNonReadableGuestRange() {
+    constexpr std::size_t page = 0x4000;
+    auto* mapped = static_cast<unsigned char*>(mmap_nid_postfix(nullptr, page, 3, 0x1002, -1, 0));
+    const auto failed = reinterpret_cast<void*>(static_cast<std::uintptr_t>(-1));
+    Require(mapped != failed);
+    Require(mprotect_nid_postfix(mapped, page, 0) == 0);
+    VirtualQueryInfo info{};
+    Require(sceKernelVirtualQuery(mapped, 0, &info, sizeof(info)) == 0);
+    Require(info.start == reinterpret_cast<std::uintptr_t>(mapped));
+    Require(info.end == info.start + page && info.protection == 0);
+    Require(sceKernelMunmap(mapped, page) == 0);
+}
+
 int main() {
     CheckVirtualQuerySplitFlexibleRanges();
+    CheckVirtualQueryForNonReadableGuestRange();
     CheckReleaseFlexibleMemory();
     CheckNamedAndHintedMappings();
     CheckInternalNamedFlexibleMapping();

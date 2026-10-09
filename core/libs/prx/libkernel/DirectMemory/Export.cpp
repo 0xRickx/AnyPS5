@@ -236,7 +236,7 @@ int APS5_VABI sceKernelVirtualQuery(const void* addr, int flags, VirtualQueryInf
   info->end = reservedEnd;
   return 0;
  }
- const auto lease = GuestAllocations::GuestAllocationsAcquire_nid_postfix();
+ const auto lease = GuestAllocations::GuestAllocationsAcquireAll_nid_postfix();
  const GuestAllocations::Range* best = nullptr;
  for (const auto& range : lease) {
   const auto begin = range->address;
