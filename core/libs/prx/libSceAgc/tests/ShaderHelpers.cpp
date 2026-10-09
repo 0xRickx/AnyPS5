@@ -94,7 +94,13 @@ int main() {
         special.vgt_gs_out_prim_type = {};
         std::array<ShaderRegister, 2> noGeometryContext{};
         Require(sceAgcCreatePrimState(noGeometryContext.data(), nullptr, nullptr, &vertex, 7) == 0);
-        Require(noGeometryContext[0].offset == VGT_SHADER_STAGES_EN && noGeometryContext[1].offset == VGT_GS_OUT_PRIM_TYPE && noGeometryContext[1].value != 0);
+        Require(noGeometryContext[0].offset == VGT_SHADER_STAGES_EN && noGeometryContext[1].offset == VGT_GS_OUT_PRIM_TYPE && noGeometryContext[1].value == static_cast<std::uint32_t>(GsOutputPrimitiveType::Rectangle2D));
+        special.vgt_shader_stages_en.value = VGT_SHADER_STAGES_GS_BIT;
+        bool rejectedMissingGeometryOutput = false;
+        try { static_cast<void>(sceAgcCreatePrimState(noGeometryContext.data(), nullptr, nullptr, &vertex, 7)); }
+        catch (const std::runtime_error&) { rejectedMissingGeometryOutput = true; }
+        Require(rejectedMissingGeometryOutput);
+        special.vgt_shader_stages_en.value = 0;
         special.vgt_gs_out_prim_type = {VGT_GS_OUT_PRIM_TYPE, 2};
         std::array<ShaderRegister, 34> linkedContext{};
         std::array<ShaderRegister, 3> linkedPrimitive{};
