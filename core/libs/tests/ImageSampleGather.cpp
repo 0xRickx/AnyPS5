@@ -38,13 +38,12 @@ static void CheckPckRejectsZeroMask(std::uint32_t encoding) {
     }
     Require(rejected);
 }
-static void CheckUnsupportedOpcodeDiagnostic() {
-    constexpr std::uint32_t encoding = 0x06u;
-    const std::array<std::uint32_t, 2> code{(0x3cu << 26u) | (encoding << 18u), 0u};
+static void CheckUnsupportedOpcodeDiagnostic(std::uint32_t encoding, std::string_view expected) {
+    const std::array<std::uint32_t, 2> code{(0x3cu << 26u) | ((encoding & 0x7fu) << 18u) | (encoding >> 7u), 0u};
     try {
         DecodeRdnaMimg(0u, code, 0u);
     } catch (const std::runtime_error& error) {
-        Require(std::string_view(error.what()).find("MIMG opcode 0x06") != std::string_view::npos);
+        Require(std::string_view(error.what()).find(expected) != std::string_view::npos);
         return;
     }
     Require(false);
@@ -100,5 +99,6 @@ int main() {
     CheckPck(0x63u, RdnaOpcode::ImageGather8hPck, 0xFu, 4u);
     CheckPckRejectsZeroMask(0x62u);
     CheckPckRejectsZeroMask(0x63u);
-    CheckUnsupportedOpcodeDiagnostic();
+    CheckUnsupportedOpcodeDiagnostic(0x06u, "MIMG opcode 0x06");
+    CheckUnsupportedOpcodeDiagnostic(0xffu, "MIMG opcode 0xff");
 }
