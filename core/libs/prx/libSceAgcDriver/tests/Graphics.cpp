@@ -15,6 +15,7 @@
 #include <algorithm>
 #include <array>
 #include <bit>
+#include <cstddef>
 #include <cstdlib>
 #include <cstring>
 #include <initializer_list>
@@ -525,6 +526,7 @@ void ComputeScratchTests() {
 void shaderUserDataTailPaddingTests() {
     constexpr std::size_t userDataOffset = 288;
     constexpr auto userDataBytes = offsetof(ShaderUserData, sharp_resource_count) + sizeof(ShaderUserData{}.sharp_resource_count);
+    static_assert(userDataBytes == 54);
     std::vector<std::byte> header(userDataOffset + userDataBytes);
     Shader shader{};
     shader.user_data = reinterpret_cast<ShaderUserData*>(header.data() + userDataOffset);
