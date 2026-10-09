@@ -522,6 +522,18 @@ void ComputeScratchTests() {
     Require(back.request.context.compute->scratchDwords == 24u, "the compute scratch size did not survive serialization");
 }
 
+void shaderUserDataTailPaddingTests() {
+    constexpr std::size_t userDataOffset = 288;
+    constexpr auto userDataBytes = offsetof(ShaderUserData, sharp_resource_count) + sizeof(ShaderUserData{}.sharp_resource_count);
+    std::vector<std::byte> header(userDataOffset + userDataBytes);
+    Shader shader{};
+    shader.user_data = reinterpret_cast<ShaderUserData*>(header.data() + userDataOffset);
+    std::memcpy(header.data(), &shader, sizeof(shader));
+    const auto headerAddress = reinterpret_cast<std::uintptr_t>(header.data());
+    const auto info = AgcDriver::Graphics::DecodeVertexStageInfo(header, headerAddress, {}, nullptr, true);
+    Require(!info.fetchEmbedded, "a ShaderUserData block without trailing struct padding was rejected");
+}
+
 void PixelInputLayoutTests() {
     using ShaderRecompiler::PixelInput;
     using ShaderRecompiler::PixelInputVgpr;
@@ -2894,6 +2906,7 @@ int main() {
         TuningFieldTests();
         PixelInputLayoutTests();
         ComputeScratchTests();
+        shaderUserDataTailPaddingTests();
         InitialContextTests();
         pushConstantTests();
         resourceTests();
