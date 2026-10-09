@@ -193,7 +193,7 @@ static_assert(sizeof(PackedJob) == 32);
 int Append(AjmBatchInfo* info, const JobHeader& header, const AjmBuffer* inputs, const AjmBuffer* outputs) {
     if (!info || !info->p_buffer) return SCE_AJM_ERROR_INVALID_PARAMETER;
     if (header.inputCount > 0xffu || header.outputCount > 0xffu || header.parameterSize > sizeof(header.parameters) || header.sidebandSize > 0xffffffffu) return SCE_AJM_ERROR_INVALID_PARAMETER;
-    if ((header.inputCount && !inputs) || (header.outputCount && !outputs)) return SCE_AJM_ERROR_INVALID_PARAMETER;
+    if ((header.inputCount && !inputs) || (header.outputCount && !outputs)) NotImplemented_nid_no_patch("AJM batch job with a null buffer list and a nonzero buffer count");
     const std::size_t parameterBytes = (header.parameterSize + 7u) & ~std::size_t{7};
     const std::size_t bytes = sizeof(PackedJob) + (header.inputCount + header.outputCount) * sizeof(AjmBuffer) + parameterBytes;
     if (info->offset > info->size || bytes > info->size - info->offset) return SCE_AJM_ERROR_OUT_OF_RESOURCES;

@@ -975,7 +975,13 @@ int main() {
     std::vector<std::uint8_t> batch(4096);
     AjmBatchInfo batchInfo{};
     Require(sceAjmBatchInitialize(batch.data(), batch.size(), &batchInfo) == 0);
-    Require(sceAjmBatchJobRunSplit(&batchInfo, 0, 0, nullptr, 1, nullptr, 0, nullptr, 0) == invalidParameter && batchInfo.offset == 0);
+    bool nullBuffersThrow = false;
+    try {
+        sceAjmBatchJobRunSplit(&batchInfo, 0, 0, nullptr, 1, nullptr, 0, nullptr, 0);
+    } catch (const std::runtime_error&) {
+        nullBuffersThrow = true;
+    }
+    Require(nullBuffersThrow && batchInfo.offset == 0);
     TestMp3ParseFrame();
     TestMp3ParseOfl();
     TestMp3(context);
