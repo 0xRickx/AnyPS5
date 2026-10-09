@@ -95,6 +95,10 @@ int main() {
         std::array<ShaderRegister, 2> noGeometryContext{};
         Require(sceAgcCreatePrimState(noGeometryContext.data(), nullptr, nullptr, &vertex, 7) == 0);
         Require(noGeometryContext[0].offset == VGT_SHADER_STAGES_EN && noGeometryContext[1].offset == VGT_GS_OUT_PRIM_TYPE && noGeometryContext[1].value == static_cast<std::uint32_t>(GsOutputPrimitiveType::Rectangle2D));
+        bool rejectedMissingHullOutput = false;
+        try { static_cast<void>(sceAgcCreatePrimState(noGeometryContext.data(), nullptr, &hull, &vertex, 7)); }
+        catch (const std::runtime_error&) { rejectedMissingHullOutput = true; }
+        Require(rejectedMissingHullOutput);
         special.vgt_shader_stages_en.value = VGT_SHADER_STAGES_GS_BIT;
         bool rejectedMissingGeometryOutput = false;
         try { static_cast<void>(sceAgcCreatePrimState(noGeometryContext.data(), nullptr, nullptr, &vertex, 7)); }
