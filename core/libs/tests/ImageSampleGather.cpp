@@ -2,6 +2,7 @@
 #include "RdnaDecoder/RdnaImageOpDecoder.hpp"
 #include <array>
 #include <stdexcept>
+#include <string_view>
 
 using namespace ShaderRecompiler;
 static void Require(bool value) { if (!value) throw std::runtime_error("image sample/gather regression"); }
@@ -36,6 +37,17 @@ static void CheckPckRejectsZeroMask(std::uint32_t encoding) {
         rejected = true;
     }
     Require(rejected);
+}
+static void CheckUnsupportedOpcodeDiagnostic() {
+    constexpr std::uint32_t encoding = 0x06u;
+    const std::array<std::uint32_t, 2> code{(0x3cu << 26u) | (encoding << 18u), 0u};
+    try {
+        DecodeRdnaMimg(0u, code, 0u);
+    } catch (const std::runtime_error& error) {
+        Require(std::string_view(error.what()).find("MIMG opcode 0x06") != std::string_view::npos);
+        return;
+    }
+    Require(false);
 }
 int main() {
     Check(0x26u, RdnaOpcode::ImageSampleBCl, 0xfu);
@@ -88,4 +100,5 @@ int main() {
     CheckPck(0x63u, RdnaOpcode::ImageGather8hPck, 0xFu, 4u);
     CheckPckRejectsZeroMask(0x62u);
     CheckPckRejectsZeroMask(0x63u);
+    CheckUnsupportedOpcodeDiagnostic();
 }
