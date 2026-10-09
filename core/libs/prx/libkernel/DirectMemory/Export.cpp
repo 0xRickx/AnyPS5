@@ -20,6 +20,7 @@
 #include <sys/resource.h>
 #endif
 #include <algorithm>
+#include <cassert>
 #include <limits>
 #include <stdexcept>
 #include <string>
@@ -237,6 +238,7 @@ int APS5_VABI sceKernelVirtualQuery(const void* addr, int flags, VirtualQueryInf
   return 0;
  }
  const auto lease = GuestAllocations::GuestAllocationsAcquireAll_nid_postfix();
+ assert(std::is_sorted(lease.begin(), lease.end(), [](const auto& left, const auto& right) { return left->address < right->address; }));
  const GuestAllocations::Range* best = nullptr;
  for (const auto& range : lease) {
   const auto begin = range->address;
