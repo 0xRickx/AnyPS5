@@ -217,11 +217,11 @@ bool TranslationContext::sharedFloatFlush(IrOpcode opcode) const {
     case IrOpcode::SharedAtomicFMin32:
     case IrOpcode::SharedAtomicFMax32:
     case IrOpcode::SharedAtomicCmpstF32:
-        return !floatMode.has_value() || ((floatMode->floatMode >> 4u) & 3u) == 0u;
+        return !floatMode.has_value() || ((floatMode->floatMode >> 4u) & 1u) == 0u;
     case IrOpcode::SharedAtomicFMin64:
     case IrOpcode::SharedAtomicFMax64:
     case IrOpcode::SharedAtomicCmpstF64:
-        return floatMode.has_value() && ((floatMode->floatMode >> 6u) & 3u) == 0u;
+        return floatMode.has_value() && ((floatMode->floatMode >> 6u) & 1u) == 0u;
     default:
         return false;
     }

@@ -467,6 +467,10 @@ int main() {
         Check(ExpectedKept, "FLOAT_MODE 0xf0");
         Run(*device, ShaderRecompiler::ShaderFloatMode{0x00u, true, false, false});
         Check(ExpectedFlushed, "FLOAT_MODE 0x00");
+        Run(*device, ShaderRecompiler::ShaderFloatMode{0x50u, true, false, false});
+        Check(ExpectedKept, "FLOAT_MODE 0x50");
+        Run(*device, ShaderRecompiler::ShaderFloatMode{0xa0u, true, false, false});
+        Check(ExpectedFlushed, "FLOAT_MODE 0xa0");
         std::puts("lds float atomic modes tests passed");
         return 0;
     } catch (const std::exception& error) {
