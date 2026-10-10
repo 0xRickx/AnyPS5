@@ -74,7 +74,7 @@ static_assert(sizeof(FragmentParameter) == 12, "FragmentParameter changed: updat
 static_assert(sizeof(CompiledShaderInfo) == 344, "CompiledShaderInfo changed: update the info encoder");
 static_assert(sizeof(ShaderInfo) == 232, "ShaderInfo changed: update the info encoder");
 static_assert(sizeof(BufferResource) == 32, "BufferResource changed: update the info encoder");
-static_assert(sizeof(ImageResource) == 112, "ImageResource changed: update the info encoder");
+static_assert(sizeof(ImageResource) == 120, "ImageResource changed: update the info encoder");
 static_assert(sizeof(SamplerResource) == 16, "SamplerResource changed: update the info encoder");
 static_assert(sizeof(SampledResourcePair) == 12, "SampledResourcePair changed: update the info encoder");
 static_assert(sizeof(StageInput) == 56, "StageInput changed: update the info encoder");
