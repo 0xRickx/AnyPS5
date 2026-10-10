@@ -97,6 +97,14 @@ std::uint32_t Value(std::uint32_t tid, std::uint32_t index) {
     return (tid * 4u + index + 1u) * 0x9e3779b1u;
 }
 
+std::uint32_t SecondStore(std::uint32_t x, std::uint32_t component) {
+    constexpr std::uint32_t Dmask = 0x5u;
+    if (((Dmask >> component) & 1u) == 0u) return 0u;
+    std::uint32_t data = 0;
+    for (std::uint32_t lower = 0; lower < component; ++lower) data += (Dmask >> lower) & 1u;
+    return Value(x, data);
+}
+
 std::uint64_t TexelOffset(const Format& format, std::uint32_t x) {
     const auto mip = AgcDriver::Graphics::ComputeMipLayout(AgcDriver::Graphics::TextureTileMode::kLinear, format.format, Width, 1u, 1u).at(0);
     return mip.tiledOffset + static_cast<std::uint64_t>(x) * format.components * 4u;
@@ -161,8 +169,8 @@ void CheckTexels(const std::uint8_t* texels, const Format& format) {
         for (std::uint32_t component = 0; component < format.components; ++component) {
             std::uint32_t actual = 0;
             std::memcpy(&actual, texels + offset + component * 4u, 4u);
-            const auto wanted = Value(x, component);
-            Require(actual == wanted, std::string("image_store 2d through a 1D ") + format.name + " T#: texel " + std::to_string(x) + " component " + std::to_string(component) + " is " + Hex(actual) + ", expected the y = 0 store " + Hex(wanted));
+            const auto wanted = SecondStore(x, component);
+            Require(actual == wanted, std::string("image_store 2d through a 1D ") + format.name + " T#: texel " + std::to_string(x) + " component " + std::to_string(component) + " is " + Hex(actual) + ", expected the y = 1 store with dmask 0x5 " + Hex(wanted));
         }
     }
     const auto end = TexelOffset(format, Width);
