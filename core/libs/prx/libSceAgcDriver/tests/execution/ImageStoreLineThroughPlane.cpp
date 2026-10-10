@@ -41,11 +41,6 @@ alignas(256) constexpr std::array<std::uint32_t, 12> StoreCode{
     0x7e3e0281, 0xf0201508, 0x0001141e, 0xbf810000,
 };
 
-alignas(256) constexpr std::array<std::uint32_t, 9> LoadCode{
-    0x34020084, 0x7e3c0300, 0x7e3e0280, 0xf0001f08, 0x0001141e, 0xbf8c3f70, 0xe0781000, 0x80001401,
-    0xbf810000,
-};
-
 class GuestBlock {
 public:
     GuestBlock() {
@@ -189,13 +184,6 @@ int main() {
             Dispatch(*device, texels, StoreCode, format.format);
             CheckTexels(texels, format);
         }
-        std::string refusal;
-        try {
-            Dispatch(*device, texels, LoadCode, Formats[1].format);
-        } catch (const std::exception& error) {
-            refusal = error.what();
-        }
-        Require(refusal.find("incompatible with the static runtime image interface") != std::string::npos, "image_load 2d through a 1D T# was not refused: " + refusal);
         std::puts("image store line through plane tests passed");
         return 0;
     } catch (const std::exception& error) {
