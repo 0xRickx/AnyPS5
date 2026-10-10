@@ -1,6 +1,5 @@
 #include "prx/libc/include/general/LogMacros.hpp"
 #include "ControlFlow/GraphBuilder.hpp"
-#include "ControlFlow/Structurizer.hpp"
 #include "prx/libSceAgcDriver/Execution/include/PerformanceTimer.hpp"
 #include "prx/libSceAgcDriver/Execution/include/Driver/Driver.hpp"
 #include "prx/libSceAgcDriver/Execution/include/Driver/Shaders/ShaderRegistry.hpp"
@@ -437,8 +436,6 @@ std::vector<PreparedShaders::Entry> PrepareRegistered(const ShaderSnapshot& snap
             return defer(reason);
         }
     }
-    auto graph = ShaderRecompiler::GraphBuilder{}.Build(decoded, &swappc);
-    ShaderRecompiler::Structurizer{}.Structurize(graph);
     const std::array<ShaderRecompiler::MemoryRegion, 2> memory{{{snapshot.codeAddress, std::as_bytes(std::span(snapshot.code))}, {snapshot.headerAddress, snapshot.header}}};
     ShaderRecompiler::RecompileRequest request{{stage, address, code, snapshot.headerAddress, snapshot.header}, {wave, firstUser, userData, compute, pixel, vertex, memory, RegisteredFloatMode(snapshot)}, stage == Stage::Compute ? device.ComputeTarget(wave) : device.Target(), {0, 0, 0, 128}, graphics};
     if (graphics && graphics->mesh) request.layout.pushConstantSizeBytes = ShaderRecompiler::MeshDrawPushOffsetBytes;
