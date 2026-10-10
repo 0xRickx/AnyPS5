@@ -236,6 +236,7 @@ int main() {
         Require(!BindsDepthCompare(Compile(*device, Format8888UNorm, {ClampEdge, FilterBilinear})), "a color texture kept a depth-compare binding");
         Run(*device, {ClampEdge, FilterPoint}, "point, clamp to edge");
         Run(*device, {ClampWrap, FilterPoint}, "point, wrap");
+        Run(*device, {ClampWrap, FilterPoint}, "point, wrap with negative offsets", true);
         Run(*device, {ClampEdge, FilterBilinear}, "bilinear, clamp to edge");
         Run(*device, {ClampWrap, FilterBilinear}, "bilinear, wrap");
         Run(*device, {ClampBorder, FilterPoint, BorderWhite}, "point, white border");
