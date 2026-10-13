@@ -83,9 +83,7 @@ int main() {
     Require(std::all_of(savedData.begin() + static_cast<std::ptrdiff_t>(oldData.size()),
                         savedData.end(), [](char byte) { return byte == 0; }));
 
-#ifdef SAVEDATA_NATIVE_BACKEND
     Require(sceSaveDataTerminate() == 0);
-#endif
     std::filesystem::current_path(originalDirectory);
     std::filesystem::remove_all(root);
 }

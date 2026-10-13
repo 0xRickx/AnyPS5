@@ -422,7 +422,7 @@ int terminate_internal() {
         return SD_ERROR_NOT_INITIALIZED;
     }
     if (std::any_of(st.slots.begin(), st.slots.end(),
-            [](const MountSlot& slot) { return slot.used; }) || !st.memory.empty()) {
+            [](const MountSlot& slot) { return slot.used; })) {
         return SD_ERROR_BUSY;
     }
     st.instances--;
