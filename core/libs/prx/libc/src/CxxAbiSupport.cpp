@@ -19,9 +19,46 @@
 #include <functional>
 #include <mutex>
 #include <memory>
+#include <condition_variable>
+#include <thread>
+#include <unordered_map>
 
 #include "prx/libc/include/General.hpp"
 #include "prx/libc/include/ApplicationHeap.hpp"
+
+namespace {
+struct OnceRegistry {
+    std::mutex mutex;
+    std::condition_variable changed;
+    std::unordered_map<int*, std::thread::id> running;
+};
+
+OnceRegistry& Onces() {
+    static auto* registry = new OnceRegistry();
+    return *registry;
+}
+
+class OnceExecution {
+public:
+    explicit OnceExecution(int* flag) : flag(flag) {}
+    ~OnceExecution() {
+        auto& onces = Onces();
+        {
+            std::lock_guard lock(onces.mutex);
+            if (completed) *flag = 1;
+            onces.running.erase(flag);
+        }
+        onces.changed.notify_all();
+    }
+    OnceExecution(const OnceExecution&) = delete;
+    OnceExecution& operator=(const OnceExecution&) = delete;
+    void Complete() { completed = true; }
+
+private:
+    int* flag;
+    bool completed = false;
+};
+}
 
 extern "C" {
 
@@ -99,11 +136,18 @@ const std::error_category* _ZSt17iostream_categoryv_nid_postfix() { return &std:
 int APS5_VABI _ZSt13_Execute_onceRSt9once_flagPFiPvS1_PS1_ES1__nid_postfix(
     int* flag, int (APS5_VABI *callback)(void*, void*, void**), void* arg
 ) {
-    static std::recursive_mutex mutex;
-    std::lock_guard lock(mutex);
+    auto& onces = Onces();
+    std::unique_lock lock(onces.mutex);
+    const auto owner = onces.running.find(flag);
+    if (*flag == 0 && owner != onces.running.end() && owner->second == std::this_thread::get_id())
+        throw std::runtime_error("std::_Execute_once: recursive call on the once_flag this thread is initializing");
+    onces.changed.wait(lock, [&] { return *flag != 0 || !onces.running.contains(flag); });
     if (*flag != 0) return 1;
+    onces.running.emplace(flag, std::this_thread::get_id());
+    lock.unlock();
+    OnceExecution execution(flag);
     if (callback(nullptr, arg, nullptr) == 0) return 0;
-    *flag = 1;
+    execution.Complete();
     return 1;
 }
 
